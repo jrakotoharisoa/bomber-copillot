@@ -1,4 +1,4 @@
-import { Scene } from 'phaser';
+import { Scene, Utils } from 'phaser';
 import { TILE_SIZE, MAP_COLS, MAP_ROWS, TILE_FLOOR } from './MapGenerator';
 
 const MOVE_DELAY = 800; // ms between AI moves
@@ -61,7 +61,7 @@ export class Enemy {
         ];
 
         // Shuffle to get random direction priority
-        Phaser.Utils.Array.Shuffle(dirs);
+        Utils.Array.Shuffle(dirs);
 
         for (const { dx, dy } of dirs) {
             const nx = this.tileX + dx;

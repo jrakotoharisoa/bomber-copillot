@@ -12,34 +12,55 @@ export class Player {
     bombRange: number = 2;
     maxBombs: number = 1;
     activeBombs: number = 0;
+    speedBoostActive: boolean = false;
 
-    private sprite: Phaser.GameObjects.Rectangle;
+    private sprite: Phaser.GameObjects.Sprite;
+    private direction: 'down' | 'up' | 'left' | 'right' = 'down';
+    private moveDuration: number = 110; // Base duration in ms
+
+    /** Frame index of the first walk frame per direction. */
+    private static readonly DIR_FRAME = { down: 0, up: 2, left: 4, right: 6 } as const;
 
     constructor(scene: Scene, tileX: number, tileY: number) {
         this.scene = scene;
         this.tileX = tileX;
         this.tileY = tileY;
 
-        this.sprite = scene.add.rectangle(
+        this.sprite = scene.add.sprite(
             tileX * TILE_SIZE + TILE_SIZE / 2,
             tileY * TILE_SIZE + TILE_SIZE / 2,
-            TILE_SIZE - 6,
-            TILE_SIZE - 6,
-            0x2196f3
+            'player',
+            0
         ).setDepth(10);
     }
 
     moveTo(tileX: number, tileY: number): void {
+        const dx = tileX - this.tileX;
+        const dy = tileY - this.tileY;
+
+        if      (dy > 0) this.direction = 'down';
+        else if (dy < 0) this.direction = 'up';
+        else if (dx < 0) this.direction = 'left';
+        else             this.direction = 'right';
+
+        this.sprite.play(`player-walk-${this.direction}`, true);
+
         this.tileX = tileX;
         this.tileY = tileY;
         this.isMoving = true;
+
+        // Reduce duration by 40% when speed boost is active
+        const duration = this.speedBoostActive ? this.moveDuration * 0.6 : this.moveDuration;
 
         this.scene.tweens.add({
             targets: this.sprite,
             x: tileX * TILE_SIZE + TILE_SIZE / 2,
             y: tileY * TILE_SIZE + TILE_SIZE / 2,
-            duration: 110,
-            onComplete: () => { this.isMoving = false; },
+            duration,
+            onComplete: () => {
+                this.isMoving = false;
+                this.sprite.setFrame(Player.DIR_FRAME[this.direction]);
+            },
         });
     }
 

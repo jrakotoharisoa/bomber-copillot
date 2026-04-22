@@ -1,4 +1,4 @@
-import { Scene } from 'phaser';
+import { Input, Scene, Utils } from 'phaser';
 import { EventBus } from '../EventBus';
 import {
     generateMap,
@@ -8,6 +8,8 @@ import {
 import { Player } from '../Player';
 import { Enemy } from '../Enemy';
 import { Bomb } from '../Bomb';
+import { Bonus } from '../Bonus';
+import { BonusType, BONUS_SPAWN_RATE, BONUS_CONFIGS } from '../BonusConfig';
 
 const ENEMY_COUNT = 3;
 
@@ -16,6 +18,7 @@ export class Game extends Scene {
     private player!: Player;
     private enemies: Enemy[] = [];
     private bombs: Bomb[] = [];
+    private bonuses: Bonus[] = [];
     // Sprite refs for destructible blocks, indexed [row][col]
     private blockSprites: (Phaser.GameObjects.Rectangle | null)[][] = [];
 
@@ -31,6 +34,9 @@ export class Game extends Scene {
     private gameActive = false;
     private result: 'win' | 'lose' | null = null;
 
+    // Bonus timer tracking per type
+    private bonusTimers: Map<BonusType, Phaser.Time.TimerEvent> = new Map();
+
     constructor() {
         super('Game');
     }
@@ -39,8 +45,10 @@ export class Game extends Scene {
         this.map = generateMap();
         this.enemies = [];
         this.bombs = [];
+        this.bonuses = [];
         this.result = null;
         this.gameActive = false;
+        this.bonusTimers.clear();
 
         this.buildMap();
         this.spawnPlayer();
@@ -99,7 +107,7 @@ export class Game extends Scene {
             }
         }
 
-        Phaser.Utils.Array.Shuffle(free);
+        Utils.Array.Shuffle(free);
 
         for (let i = 0; i < Math.min(count, free.length); i++) {
             const { col, row } = free[i];
@@ -112,12 +120,12 @@ export class Game extends Scene {
     private setupInput(): void {
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.wasd = {
-            up:    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-            down:  this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-            left:  this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-            right: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+            up:    this.input.keyboard!.addKey(Input.Keyboard.KeyCodes.W),
+            down:  this.input.keyboard!.addKey(Input.Keyboard.KeyCodes.S),
+            left:  this.input.keyboard!.addKey(Input.Keyboard.KeyCodes.A),
+            right: this.input.keyboard!.addKey(Input.Keyboard.KeyCodes.D),
         };
-        this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.spaceKey = this.input.keyboard!.addKey(Input.Keyboard.KeyCodes.SPACE);
     }
 
     // ─── Update ───────────────────────────────────────────────────────────────
@@ -129,8 +137,15 @@ export class Game extends Scene {
             this.handleMovement();
         }
 
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        if (Input.Keyboard.JustDown(this.spaceKey)) {
             this.placeBomb();
+        }
+
+        // Check bonus collisions
+        for (const bonus of this.bonuses) {
+            if (bonus.checkCollision(this.player)) {
+                this.collectBonus(bonus);
+            }
         }
     }
 
@@ -240,6 +255,9 @@ export class Game extends Scene {
                     this.map[ny][nx] = TILE_FLOOR;
                     this.blockSprites[ny][nx]?.destroy();
                     this.blockSprites[ny][nx] = null;
+                    
+                    // Maybe spawn a bonus
+                    this.maybeSpawnBonus(nx, ny);
                     break; // Explosion doesn't pass through
                 }
             }
@@ -263,5 +281,56 @@ export class Game extends Scene {
             this.result = 'win';
             this.time.delayedCall(1200, () => this.scene.start('GameOver', { result: 'win' }));
         }
+    }
+
+    // ─── Bonuses ──────────────────────────────────────────────────────────────
+
+    private maybeSpawnBonus(tileX: number, tileY: number): void {
+        if (Math.random() > BONUS_SPAWN_RATE) return;
+
+        const bonusTypes: BonusType[] = ['range', 'bombs', 'speed'];
+        const randomType = bonusTypes[Math.floor(Math.random() * bonusTypes.length)];
+        const bonus = new Bonus(this, tileX, tileY, randomType);
+        this.bonuses.push(bonus);
+    }
+
+    private collectBonus(bonus: Bonus): void {
+        // Remove from active list
+        this.bonuses = this.bonuses.filter(b => b !== bonus);
+
+        // If a bonus of the same type is already active, restart its timer
+        if (this.bonusTimers.has(bonus.type)) {
+            this.bonusTimers.get(bonus.type)?.remove();
+            this.bonusTimers.delete(bonus.type);
+        }
+
+        // Apply the bonus effect
+        bonus.apply(this.player);
+
+        // Set a timer to restore the bonus effect
+        const config = BONUS_CONFIGS[bonus.type];
+        const timer = this.time.addEvent({
+            delay: config.duration,
+            callback: () => {
+                bonus.restore(this.player);
+                this.bonusTimers.delete(bonus.type);
+            },
+        });
+
+        this.bonusTimers.set(bonus.type, timer);
+
+        // Destroy the bonus sprite
+        bonus.destroy();
+
+        // Visual feedback: pulse the player
+        this.tweens.add({
+            targets: this.player,
+            duration: 200,
+            repeat: 1,
+            yoyo: true,
+            onUpdate: () => {
+                // This will be visible if we add player sprite reference
+            },
+        });
     }
 }

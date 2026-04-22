@@ -28,6 +28,32 @@ This template has been updated for:
 | `npm run build` | Create a production build in the `dist` folder |
 | `npm run dev-nolog` | Launch a development web server without sending anonymous data (see "About log.js" below) |
 | `npm run build-nolog` | Create a production build in the `dist` folder without sending anonymous data (see "About log.js" below) |
+| `npm run deploy` | Build and publish to GitHub Pages |
+
+## Deploying to GitHub Pages
+
+This project is configured for manual deployment to GitHub Pages as a project page.
+
+**Prerequisites:** The repository must exist on GitHub and you must have push access.
+
+**Steps:**
+
+1. Install dependencies (first time only):
+   ```bash
+   npm install
+   ```
+
+2. Build and publish:
+   ```bash
+   npm run deploy
+   ```
+   This builds the project and pushes the `dist/` folder to the `gh-pages` branch of your repository.
+
+3. In your GitHub repository, go to **Settings → Pages** and set the source to **Deploy from a branch → `gh-pages` / `root`**.
+
+4. Your game will be available at: `https://<your-username>.github.io/bomber-copilot/`
+
+> **Note:** The first deployment may take a minute or two before the URL becomes live.
 
 ## Writing Code
 

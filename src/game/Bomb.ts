@@ -7,7 +7,7 @@ export class Bomb {
     readonly range: number;
     exploded: boolean = false;
 
-    private sprite: Phaser.GameObjects.Rectangle;
+    private sprite: Phaser.GameObjects.Sprite;
     private timer: Phaser.Time.TimerEvent;
     private pulseTween: Phaser.Tweens.Tween;
 
@@ -22,12 +22,10 @@ export class Bomb {
         this.tileY = tileY;
         this.range = range;
 
-        this.sprite = scene.add.rectangle(
+        this.sprite = scene.add.sprite(
             tileX * TILE_SIZE + TILE_SIZE / 2,
             tileY * TILE_SIZE + TILE_SIZE / 2,
-            TILE_SIZE - 10,
-            TILE_SIZE - 10,
-            0x111111
+            'bomb'
         ).setDepth(8);
 
         // Pulse animation to show it's about to explode
