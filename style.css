@@ -1,9 +1,52 @@
+/* Devoxx 2026 Color Palette */
+:root {
+    --devoxx-red: #E74C3C;
+    --devoxx-dark-red: #C0392B;
+    --devoxx-dark-bg: #1a1a1e;
+    --devoxx-darker-bg: #0f0f12;
+    --devoxx-light-gray: #e8e8e8;
+    --devoxx-medium-gray: #34343f;
+    --accent-cyan: #00d9ff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     padding: 0;
     color: rgba(255, 255, 255, 0.87);
-    background-color: #000000; 
-    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(135deg, var(--devoxx-darker-bg) 0%, var(--devoxx-dark-bg) 50%, #1a1a1e 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+}
+
+/* Subtle animated grid pattern background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(0deg, transparent 24%, rgba(230, 126, 34, 0.05) 25%, rgba(230, 126, 34, 0.05) 26%, transparent 27%, transparent 74%, rgba(230, 126, 34, 0.05) 75%, rgba(230, 126, 34, 0.05) 76%, transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%, rgba(230, 126, 34, 0.05) 25%, rgba(230, 126, 34, 0.05) 26%, transparent 27%, transparent 74%, rgba(230, 126, 34, 0.05) 75%, rgba(230, 126, 34, 0.05) 76%, transparent 77%, transparent);
+    background-size: 120px 120px;
+    pointer-events: none;
+    z-index: -1;
+    animation: gridDrift 60s linear infinite;
+}
+
+@keyframes gridDrift {
+    0% {
+        transform: translate(0, 0);
+    }
+    100% {
+        transform: translate(120px, 120px);
+    }
 }
 
 #app {
@@ -13,36 +56,203 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
+    gap: 20px;
+}
+
+/* Game container with Devoxx styling */
+.phaser-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    box-shadow: 
+        0 0 40px rgba(231, 76, 60, 0.3),
+        0 0 80px rgba(0, 217, 255, 0.1),
+        inset 0 0 60px rgba(26, 26, 30, 0.5);
+    border: 2px solid var(--devoxx-red);
+    background: linear-gradient(135deg, rgba(26, 26, 30, 0.9) 0%, rgba(52, 52, 63, 0.6) 100%);
+    padding: 20px;
+    backdrop-filter: blur(10px);
+}
+
+/* Pulse animation on game container */
+@keyframes containerPulse {
+    0%, 100% {
+        box-shadow: 
+            0 0 40px rgba(231, 76, 60, 0.3),
+            0 0 80px rgba(0, 217, 255, 0.1),
+            inset 0 0 60px rgba(26, 26, 30, 0.5);
+    }
+    50% {
+        box-shadow: 
+            0 0 60px rgba(231, 76, 60, 0.5),
+            0 0 100px rgba(0, 217, 255, 0.2),
+            inset 0 0 60px rgba(26, 26, 30, 0.5);
+    }
+}
+
+.phaser-container.active {
+    animation: containerPulse 4s ease-in-out infinite;
+}
+
+/* Devoxx logo/branding accent */
+.devoxx-accent {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--devoxx-red);
+    color: white;
+    padding: 4px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    z-index: 10;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
 }
 
 .spritePosition {
     margin: 10px 0 0 10px;
     font-size: 0.8em;
+    color: var(--accent-cyan);
+    font-weight: 500;
 }
 
+/* Button styling with Devoxx theme */
 .button {
     width: 140px;
     margin: 10px;
-    padding: 10px;
-    background-color: #000000;
-    color: rgba(255, 255, 255, 0.87);
-    border: 1px solid rgba(255, 255, 255, 0.87);
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--devoxx-dark-bg) 0%, var(--devoxx-medium-gray) 100%);
+    color: rgba(255, 255, 255, 0.9);
+    border: 2px solid var(--devoxx-red);
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
 
-    &:hover {
-        border: 1px solid #0ec3c9;
-        color: #0ec3c9;
+.button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(231, 76, 60, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.button:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.3), inset 0 0 20px rgba(0, 217, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.button:active {
+    background: linear-gradient(135deg, var(--devoxx-red) 0%, var(--devoxx-dark-red) 100%);
+    color: white;
+    transform: translateY(0);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.button:disabled {
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.3);
+    opacity: 0.5;
+}
+
+.button:disabled:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+/* Game score/info panel styling */
+.game-info {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: var(--devoxx-light-gray);
+    font-size: 14px;
+    min-width: 150px;
+}
+
+.info-item {
+    padding: 12px;
+    background: rgba(52, 52, 63, 0.6);
+    border-left: 4px solid var(--devoxx-red);
+    border-radius: 4px;
+    backdrop-filter: blur(5px);
+}
+
+.info-label {
+    color: var(--accent-cyan);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+    body::before {
+        background-size: 80px 80px;
     }
 
-    &:active {
-        background-color: #0ec3c9;
+    #app {
+        flex-direction: column;
+        padding: 20px;
     }
 
-    /* Disabled styles */
-    &:disabled {
-        cursor: not-allowed;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: rgba(255, 255, 255, 0.3);
+    .phaser-container {
+        padding: 16px;
+        border-radius: 8px;
+    }
+
+    .game-info {
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        min-width: auto;
+    }
+
+    .info-item {
+        flex: 1;
+        min-width: 120px;
+    }
+}
+
+/* Accessibility: reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    body::before {
+        animation: none;
+    }
+
+    .phaser-container.active {
+        animation: none;
+    }
+
+    .button {
+        transition: border-color 0.2s, color 0.2s;
+    }
+
+    .button::before {
+        display: none;
     }
 }
