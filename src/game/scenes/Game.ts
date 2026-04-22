@@ -1,36 +1,267 @@
-import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
+import { EventBus } from '../EventBus';
+import {
+    generateMap,
+    TILE_SIZE, MAP_COLS, MAP_ROWS,
+    TILE_FLOOR, TILE_WALL, TILE_BLOCK,
+} from '../MapGenerator';
+import { Player } from '../Player';
+import { Enemy } from '../Enemy';
+import { Bomb } from '../Bomb';
 
-export class Game extends Scene
-{
-    camera: Phaser.Cameras.Scene2D.Camera;
-    background: Phaser.GameObjects.Image;
-    gameText: Phaser.GameObjects.Text;
+const ENEMY_COUNT = 3;
 
-    constructor ()
-    {
+export class Game extends Scene {
+    private map: number[][] = [];
+    private player!: Player;
+    private enemies: Enemy[] = [];
+    private bombs: Bomb[] = [];
+    // Sprite refs for destructible blocks, indexed [row][col]
+    private blockSprites: (Phaser.GameObjects.Rectangle | null)[][] = [];
+
+    private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+    private wasd!: {
+        up: Phaser.Input.Keyboard.Key;
+        down: Phaser.Input.Keyboard.Key;
+        left: Phaser.Input.Keyboard.Key;
+        right: Phaser.Input.Keyboard.Key;
+    };
+    private spaceKey!: Phaser.Input.Keyboard.Key;
+
+    private gameActive = false;
+    private result: 'win' | 'lose' | null = null;
+
+    constructor() {
         super('Game');
     }
 
-    create ()
-    {
-        this.camera = this.cameras.main;
-        this.camera.setBackgroundColor(0x00ff00);
+    create(): void {
+        this.map = generateMap();
+        this.enemies = [];
+        this.bombs = [];
+        this.result = null;
+        this.gameActive = false;
 
-        this.background = this.add.image(512, 384, 'background');
-        this.background.setAlpha(0.5);
+        this.buildMap();
+        this.spawnPlayer();
+        this.spawnEnemies(ENEMY_COUNT);
+        this.setupInput();
 
-        this.gameText = this.add.text(512, 384, 'Make something fun!\nand share it with us:\nsupport@phaser.io', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
+        // Short delay so first keypress doesn't instantly move
+        this.time.delayedCall(300, () => { this.gameActive = true; });
 
         EventBus.emit('current-scene-ready', this);
     }
 
-    changeScene ()
-    {
-        this.scene.start('GameOver');
+    // ─── Map ──────────────────────────────────────────────────────────────────
+
+    private buildMap(): void {
+        const mapW = MAP_COLS * TILE_SIZE;
+        const mapH = MAP_ROWS * TILE_SIZE;
+
+        // Green floor background
+        this.add.rectangle(mapW / 2, mapH / 2, mapW, mapH, 0x5a8a3c);
+
+        for (let row = 0; row < MAP_ROWS; row++) {
+            this.blockSprites[row] = [];
+            for (let col = 0; col < MAP_COLS; col++) {
+                const x = col * TILE_SIZE + TILE_SIZE / 2;
+                const y = row * TILE_SIZE + TILE_SIZE / 2;
+                const tile = this.map[row][col];
+
+                if (tile === TILE_WALL) {
+                    this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x424242).setDepth(1);
+                    this.blockSprites[row][col] = null;
+                } else if (tile === TILE_BLOCK) {
+                    const block = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x795548).setDepth(2);
+                    this.blockSprites[row][col] = block;
+                } else {
+                    this.blockSprites[row][col] = null;
+                }
+            }
+        }
+    }
+
+    // ─── Spawning ─────────────────────────────────────────────────────────────
+
+    private spawnPlayer(): void {
+        this.player = new Player(this, 1, 1);
+    }
+
+    private spawnEnemies(count: number): void {
+        const free: { col: number; row: number }[] = [];
+
+        for (let row = 1; row < MAP_ROWS - 1; row++) {
+            for (let col = 1; col < MAP_COLS - 1; col++) {
+                if (this.map[row][col] === TILE_FLOOR && !(row <= 3 && col <= 3)) {
+                    free.push({ col, row });
+                }
+            }
+        }
+
+        Phaser.Utils.Array.Shuffle(free);
+
+        for (let i = 0; i < Math.min(count, free.length); i++) {
+            const { col, row } = free[i];
+            this.enemies.push(new Enemy(this, col, row, this.map));
+        }
+    }
+
+    // ─── Input ────────────────────────────────────────────────────────────────
+
+    private setupInput(): void {
+        this.cursors = this.input.keyboard!.createCursorKeys();
+        this.wasd = {
+            up:    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+            down:  this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+            left:  this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+            right: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+        };
+        this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    }
+
+    // ─── Update ───────────────────────────────────────────────────────────────
+
+    update(): void {
+        if (!this.gameActive || !this.player.alive || this.result !== null) return;
+
+        if (!this.player.isMoving) {
+            this.handleMovement();
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            this.placeBomb();
+        }
+    }
+
+    private handleMovement(): void {
+        const { up, down, left, right } = this.cursors;
+        const w = this.wasd;
+        let dx = 0;
+        let dy = 0;
+
+        if (up.isDown    || w.up.isDown)    dy = -1;
+        else if (down.isDown  || w.down.isDown)  dy = 1;
+        else if (left.isDown  || w.left.isDown)  dx = -1;
+        else if (right.isDown || w.right.isDown) dx = 1;
+
+        if (dx === 0 && dy === 0) return;
+
+        const nx = this.player.tileX + dx;
+        const ny = this.player.tileY + dy;
+
+        if (
+            nx >= 0 && ny >= 0 && nx < MAP_COLS && ny < MAP_ROWS &&
+            this.map[ny][nx] !== TILE_WALL &&
+            this.map[ny][nx] !== TILE_BLOCK &&
+            !this.bombs.some(b => b.tileX === nx && b.tileY === ny)
+        ) {
+            this.player.moveTo(nx, ny);
+        }
+    }
+
+    // ─── Bombs ────────────────────────────────────────────────────────────────
+
+    private placeBomb(): void {
+        const { tileX, tileY } = this.player;
+
+        if (
+            this.player.activeBombs >= this.player.maxBombs ||
+            this.bombs.some(b => b.tileX === tileX && b.tileY === tileY)
+        ) return;
+
+        this.player.activeBombs++;
+        const bomb = new Bomb(this, tileX, tileY, this.player.bombRange, (b) => this.explodeBomb(b));
+        this.bombs.push(bomb);
+    }
+
+    private explodeBomb(bomb: Bomb): void {
+        // Remove from active list
+        this.bombs = this.bombs.filter(b => b !== bomb);
+        this.player.activeBombs = Math.max(0, this.player.activeBombs - 1);
+
+        const hitTiles = this.computeExplosionTiles(bomb);
+
+        // Render explosion flash on each tile
+        for (const { x, y } of hitTiles) {
+            const rect = this.add.rectangle(
+                x * TILE_SIZE + TILE_SIZE / 2,
+                y * TILE_SIZE + TILE_SIZE / 2,
+                TILE_SIZE,
+                TILE_SIZE,
+                0xff5722
+            ).setDepth(15).setAlpha(0.92);
+
+            this.time.delayedCall(500, () => rect.destroy());
+        }
+
+        // Check entities hit
+        for (const { x, y } of hitTiles) {
+            // Player
+            if (this.player.alive && this.player.tileX === x && this.player.tileY === y) {
+                this.player.die();
+            }
+
+            // Enemies
+            for (const enemy of this.enemies) {
+                if (enemy.alive && enemy.tileX === x && enemy.tileY === y) {
+                    enemy.die();
+                }
+            }
+
+            // Chain-reaction: trigger other bombs on the exploded tiles
+            const chainBombs = this.bombs.filter(b => !b.exploded && b.tileX === x && b.tileY === y);
+            for (const cb of chainBombs) {
+                cb.triggerEarly((b) => this.explodeBomb(b));
+            }
+        }
+
+        // Evaluate win/lose shortly after the visual
+        this.time.delayedCall(600, () => this.checkWinLose());
+    }
+
+    /** Returns all tiles that the explosion reaches, destroying blocks along the way. */
+    private computeExplosionTiles(bomb: Bomb): { x: number; y: number }[] {
+        const result: { x: number; y: number }[] = [{ x: bomb.tileX, y: bomb.tileY }];
+        const dirs = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
+
+        for (const { dx, dy } of dirs) {
+            for (let i = 1; i <= bomb.range; i++) {
+                const nx = bomb.tileX + dx * i;
+                const ny = bomb.tileY + dy * i;
+
+                if (nx < 0 || ny < 0 || nx >= MAP_COLS || ny >= MAP_ROWS) break;
+                if (this.map[ny][nx] === TILE_WALL) break;
+
+                result.push({ x: nx, y: ny });
+
+                if (this.map[ny][nx] === TILE_BLOCK) {
+                    // Destroy the block
+                    this.map[ny][nx] = TILE_FLOOR;
+                    this.blockSprites[ny][nx]?.destroy();
+                    this.blockSprites[ny][nx] = null;
+                    break; // Explosion doesn't pass through
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // ─── Win / Lose ───────────────────────────────────────────────────────────
+
+    private checkWinLose(): void {
+        if (this.result !== null) return;
+
+        if (!this.player.alive) {
+            this.result = 'lose';
+            this.time.delayedCall(1200, () => this.scene.start('GameOver', { result: 'lose' }));
+            return;
+        }
+
+        if (this.enemies.every(e => !e.alive)) {
+            this.result = 'win';
+            this.time.delayedCall(1200, () => this.scene.start('GameOver', { result: 'win' }));
+        }
     }
 }

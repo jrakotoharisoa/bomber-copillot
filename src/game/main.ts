@@ -5,14 +5,13 @@ import { MainMenu } from './scenes/MainMenu';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 
-//  Find out more information about the Game Config at:
-//  https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
+// Canvas matches the tile grid: 15 cols × 48px = 720, 13 rows × 48px = 624
 const config: Phaser.Types.Core.GameConfig = {
     type: AUTO,
-    width: 1024,
-    height: 768,
+    width: 720,
+    height: 624,
     parent: 'game-container',
-    backgroundColor: '#028af8',
+    backgroundColor: '#1a1a2e',
     scene: [
         Boot,
         Preloader,
