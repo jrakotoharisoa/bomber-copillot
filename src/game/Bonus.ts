@@ -9,11 +9,9 @@ export class Bonus {
     readonly tileY: number;
 
     private sprite: Phaser.GameObjects.Rectangle;
-    private scene: Scene;
     private pulseTween: Phaser.Tweens.Tween;
 
     constructor(scene: Scene, tileX: number, tileY: number, type: BonusType) {
-        this.scene = scene;
         this.tileX = tileX;
         this.tileY = tileY;
         this.type = type;
