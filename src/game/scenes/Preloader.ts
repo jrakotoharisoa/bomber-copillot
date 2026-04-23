@@ -75,25 +75,60 @@ export class Preloader extends Scene
         wc.fillRect(Math.round(TILE * 3 / 4) - 2, TILE / 2 + 1, 2, TILE / 2 - 4);
         wall.refresh();
 
-        // Destructible block (crate)
+        // Destructible block (brick wall)
         const block = this.textures.createCanvas('tile-block', TILE, TILE)!;
         const bc = block.getContext();
-        bc.fillStyle = '#5d4037';
+
+        // Brick dimensions: 3 rows × 16px (14px brick + 2px mortar), 2 bricks per row × 24px (22px brick + 2px mortar)
+        const BRICK_W  = 24; // column pitch (brick + right mortar)
+        const BRICK_H  = 16; // row pitch    (brick + bottom mortar)
+        const MORTAR   = 2;
+        const BRICK_COLORS = ['#b03a2e', '#a93226', '#c0392b'] as const;
+
+        // Mortar background
+        bc.fillStyle = '#8d8d8d';
         bc.fillRect(0, 0, TILE, TILE);
-        bc.fillStyle = '#8d6e63';
-        bc.fillRect(3, 3, TILE - 6, TILE - 6);
-        bc.fillStyle = 'rgba(255,255,255,0.18)';
-        bc.fillRect(3, 3, TILE - 6, 4);
-        bc.fillRect(3, 3, 4, TILE - 6);
-        bc.strokeStyle = 'rgba(0,0,0,0.3)';
-        bc.lineWidth = 2;
-        bc.beginPath(); bc.moveTo(5, 5); bc.lineTo(TILE - 5, TILE - 5); bc.stroke();
-        bc.beginPath(); bc.moveTo(TILE - 5, 5); bc.lineTo(5, TILE - 5); bc.stroke();
-        for (const [nx, ny] of [[6, 6], [TILE - 6, 6], [6, TILE - 6], [TILE - 6, TILE - 6]] as [number, number][])
+
+        for (let row = 0; row < 3; row++)
         {
-            bc.fillStyle = '#ffd54f';
-            bc.beginPath(); bc.arc(nx, ny, 2.5, 0, Math.PI * 2); bc.fill();
+            const offsetX = (row % 2 === 0) ? 0 : -(BRICK_W / 2);
+            const by      = row * BRICK_H;
+            const bh      = BRICK_H - MORTAR;
+
+            for (let col = -1; col < 3; col++)
+            {
+                const bx       = offsetX + col * BRICK_W;
+                const bw       = BRICK_W - MORTAR;
+                const clipLeft = Math.max(bx, 0);
+                const clipW    = Math.min(bx + bw, TILE) - clipLeft;
+
+                if (clipW <= 0) continue;
+
+                // Base brick color (slight variation per brick)
+                bc.fillStyle = BRICK_COLORS[(row + col + 3) % BRICK_COLORS.length];
+                bc.fillRect(clipLeft, by, clipW, bh);
+
+                // Top highlight
+                bc.fillStyle = 'rgba(255,255,255,0.22)';
+                bc.fillRect(clipLeft, by, clipW, 2);
+
+                // Left highlight (only when the left edge is not clipped)
+                if (bx >= 0)
+                {
+                    bc.fillRect(bx, by, 2, bh);
+                }
+
+                // Bottom shadow
+                bc.fillStyle = 'rgba(0,0,0,0.28)';
+                bc.fillRect(clipLeft, by + bh - 2, clipW, 2);
+            }
         }
+
+        // Overall border shadow to give depth
+        bc.strokeStyle = 'rgba(0,0,0,0.45)';
+        bc.lineWidth   = 2;
+        bc.strokeRect(1, 1, TILE - 2, TILE - 2);
+
         block.refresh();
 
         // Explosion overlay
