@@ -20,7 +20,7 @@ export class Game extends Scene {
     private bombs: Bomb[] = [];
     private bonuses: Bonus[] = [];
     // Sprite refs for destructible blocks, indexed [row][col]
-    private blockSprites: (Phaser.GameObjects.Rectangle | null)[][] = [];
+    private blockSprites: (Phaser.GameObjects.Image | null)[][] = [];
 
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private wasd!: {
@@ -81,7 +81,7 @@ export class Game extends Scene {
                     this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x424242).setDepth(1);
                     this.blockSprites[row][col] = null;
                 } else if (tile === TILE_BLOCK) {
-                    const block = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x795548).setDepth(2);
+                    const block = this.add.image(x, y, 'tile-block').setDepth(2);
                     this.blockSprites[row][col] = block;
                 } else {
                     this.blockSprites[row][col] = null;
@@ -251,11 +251,24 @@ export class Game extends Scene {
                 result.push({ x: nx, y: ny });
 
                 if (this.map[ny][nx] === TILE_BLOCK) {
-                    // Destroy the block
+                    // Remove block from map immediately (collision/explosion logic)
                     this.map[ny][nx] = TILE_FLOOR;
-                    this.blockSprites[ny][nx]?.destroy();
+                    const sprite = this.blockSprites[ny][nx];
                     this.blockSprites[ny][nx] = null;
-                    
+
+                    // Brick-break visual: scale up and fade out
+                    if (sprite) {
+                        this.tweens.add({
+                            targets: sprite,
+                            alpha: 0,
+                            scaleX: 1.4,
+                            scaleY: 1.4,
+                            duration: 220,
+                            ease: 'Power2Out',
+                            onComplete: () => sprite.destroy(),
+                        });
+                    }
+
                     // Maybe spawn a bonus
                     this.maybeSpawnBonus(nx, ny);
                     break; // Explosion doesn't pass through
